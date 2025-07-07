@@ -89,7 +89,7 @@ def ShouldIByCrypto():
                 if prediction == 1:
                     send_telegram_message(f"🚀 *Signal d'achat détecté !* Il est peut-être temps d'acheter *{symbol}* !")
                 else:
-                    send_telegram_message(f"😐 Aucun signal d'achat pour {symbol} à cette heure.")
+                    print(f"😐 Aucun signal d'achat pour {symbol} à cette heure.")
             
             print("Message envoyé sur Telegram.")
         except Exception as e:

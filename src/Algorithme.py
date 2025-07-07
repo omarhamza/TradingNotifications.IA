@@ -46,12 +46,20 @@ def ShouldIByCrypto():
             
             # 3. Vérifie RSI > 70 (signal de VENTE immédiat)
             latest_rsi = df['rsi'].iloc[-1]
+            second_to_last_rsi = df['rsi'].iloc[-2]
             print(f"{symbol} rsi: {latest_rsi:.2f}")
+            print(f"{symbol} second to last: {second_to_last_rsi:.2f}")
             if latest_rsi > 70:
                 print(f"🔺Symbol {symbol},\n"
                       f"RSI = {latest_rsi:.2f} > 70\n"
                       f"🔴Signal de VENTE immédiat")
             else:
+                if latest_rsi - second_to_last_rsi > 10:
+                    print(f"🔺Symbol {symbol},\n"
+                          f"RSI before: {second_to_last_rsi:.2f},\n"
+                          f"RSI now: {latest_rsi:.2f}\n"
+                          f"🟢 Potentiel signal d'achat")
+                    
                 # 4. Label (1 = Buy, 0 = Hold)
                 future_return = df['close'].shift(-3) / df['close'] - 1
                 df['target'] = np.where(future_return > 0.01, 1, 0)  # achat si +1% dans 3h

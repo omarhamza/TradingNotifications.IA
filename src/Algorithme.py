@@ -2,6 +2,7 @@ import ccxt
 import pandas as pd
 import numpy as np
 import requests
+import time
 from ta.momentum import RSIIndicator
 from ta.trend import MACD
 from sklearn.ensemble import RandomForestClassifier
@@ -11,6 +12,7 @@ from sklearn.metrics import classification_report
 
 TELEGRAM_TOKEN = "7706670085:AAGRMve7EuhFo1i8C2U22JdNPyGyvjN4-N8"
 TELEGRAM_CHAT_ID = "7664939619"
+SLEEP_TIME = 15
 
 # ⚙️ Liste des cryptos à surveiller
 SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
@@ -95,5 +97,12 @@ def ShouldIByCrypto():
 
 
 # 🔁 Boucle de surveillance
-#while True:
-ShouldIByCrypto()
+while True:
+    try:
+        ShouldIByCrypto()
+
+    except Exception as e:
+        print(f"❌ Error: {e}")
+
+    print(f"⏳ Waiting {SLEEP_TIME} minutes for next run...\n")
+    time.sleep(SLEEP_TIME * 60)

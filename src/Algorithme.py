@@ -7,12 +7,14 @@ from ta.trend import MACD
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-import joblib
-import os
 
 
 TELEGRAM_TOKEN = "7706670085:AAGRMve7EuhFo1i8C2U22JdNPyGyvjN4-N8"
 TELEGRAM_CHAT_ID = "7664939619"
+
+# ⚙️ Liste des cryptos à surveiller
+SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
+RSI_THRESHOLD_SELL = 70
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -25,16 +27,6 @@ def send_telegram_message(message):
         requests.post(url, data=payload)
     except Exception as e:
         print("Erreur envoi Telegram :", e)
-
-# ⚙️ Liste des cryptos à surveiller
-SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
-
-# ⚙️ Seuils d’achat fictifs (exemple)
-BUY_THRESHOLDS = {
-    'BTC/USDT': 58000,
-    'ETH/USDT': 3100,
-    'SOL/USDT': 120
-}
 
 # Should I buy crypto
 def ShouldIByCrypto():
@@ -88,4 +80,3 @@ def ShouldIByCrypto():
 # 🔁 Boucle de surveillance
 #while True:
 ShouldIByCrypto()
-time.sleep(60)  # attends 60 sec avant de recommencer

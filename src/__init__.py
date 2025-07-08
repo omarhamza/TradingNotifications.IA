@@ -4,11 +4,13 @@ import numpy as np
 import requests
 import time
 from ta.momentum import RSIIndicator
-from ta.trend import MACD
+from ta.trend import MACD, EMAIndicator
+from ta.volatility import BollingerBands
+from ta.volume import OnBalanceVolumeIndicator
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-
+from xgboost import XGBClassifier
 
 TELEGRAM_TOKEN = ""
 TELEGRAM_CHAT_ID = ""
@@ -17,6 +19,36 @@ SLEEP_TIME = 15
 # ⚙️ Liste des cryptos à surveiller
 SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
 RSI_THRESHOLD_SELL = 70
+combined_df = []
+
+# ---- 1. Charger les données depuis Binance ----
+def fetch_crypto_data(symbol, timeframe='1h', limit=500):
+    exchange = ccxt.binance()
+    data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
+    df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+    df.set_index('timestamp', inplace=True)
+    return df
+
+# ---- 2. Ajouter des indicateurs techniques ----
+def enrich_features(df):
+    df['rsi'] = RSIIndicator(close=df['close']).rsi()
+    df['macd'] = MACD(close=df['close']).macd()
+    df['macd_signal'] = MACD(close=df['close']).macd_signal()
+    df['ema_20'] = EMAIndicator(close=df['close'], window=20).ema_indicator()
+    df['ema_50'] = EMAIndicator(close=df['close'], window=50).ema_indicator()
+    
+    bb = BollingerBands(close=df['close'])
+    df['bb_high'] = bb.bollinger_hband()
+    df['bb_low'] = bb.bollinger_lband()
+
+    df['obv'] = OnBalanceVolumeIndicator(close=df['close'], volume=df['volume']).on_balance_volume()
+    df['returns'] = df['close'].pct_change()
+    df['volatility'] = df['returns'].rolling(10).std()
+    df['rsi_delta'] = df['rsi'].diff()
+
+    df.dropna(inplace=True)
+    return df
 
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -34,30 +66,31 @@ def send_telegram_message(message):
 def ShouldIByCrypto():
     for symbol in SYMBOLS:
         try:
-            # 1. Charger les données de Binance (1h)
-            exchange = ccxt.binance()
-            data = exchange.fetch_ohlcv(symbol, timeframe='1h', limit=500)
-            df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-            
-            # 2. Indicateurs techniques
-            df['rsi'] = RSIIndicator(close=df['close']).rsi()
-            macd = MACD(close=df['close'])
-            df['macd'] = macd.macd()
-            df['macd_signal'] = macd.macd_signal()
-                
+            df = fetch_crypto_data(symbol)
+            df = enrich_features(df)
+            df['symbol'] = symbol
+            combined_df.append(df) 
+
+            df_all = pd.concat(combined_df)
+            df_all.reset_index(inplace=True)
+             
             # 3. Label (1 = Buy, 0 = Hold)
-            future_return = df['close'].shift(-3) / df['close'] - 1
-            df['target'] = np.where(future_return > 0.01, 1, 0)  # achat si +1% dans 3h
-        
-            # 4. Préparation des données
-            df.dropna(inplace=True)  # supprime les NaN pour RSI/MACD
-        
-            X = df[['rsi', 'macd', 'macd_signal']]
-            y = df['target']
-            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+            df_all['future_return'] = df_all.groupby('symbol')['close'].shift(-3) / df_all['close'] - 1
+            df_all['target'] = (df_all['future_return'] > 0.01).astype(int)
+
+            features = [
+                'rsi', 'rsi_delta', 'macd', 'macd_signal',
+                'ema_20', 'ema_50', 'bb_high', 'bb_low',
+                'obv', 'volatility'
+            ]
+
+            # ---- 4. Label : achat si prix augmente >1% dans 3 heures ----
+            df_all.dropna(subset=features + ['target'], inplace=True)
+            X = df_all[features]
+            y = df_all['target']
         
             # 5 Entraînement du modèle ML
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
             model = RandomForestClassifier(n_estimators=100, random_state=42)
             model.fit(X_train, y_train)
         

@@ -1,8 +1,10 @@
+import logging
 import ccxt
 import pandas as pd
 import numpy as np
 import requests
 import time
+import azure.functions as func
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import BollingerBands
@@ -127,8 +129,9 @@ def ShouldIByCrypto():
             print(f"Erreur de prédiction pour {symbol} : {e}")
 
 
-# 🔁 Boucle de surveillance
-while True:
+def main(mytimer: func.TimerRequest) -> None:
+    logging.info("⏰ Azure Function triggered!")
+
     try:
         ShouldIByCrypto()
 

@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import requests
 import time
+import os
 from ta.momentum import RSIIndicator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import BollingerBands
@@ -78,6 +79,7 @@ def enrich_features(df):
     df.dropna(inplace=True)
     return df
 
+# ---------------------- Envoyer message via télégram ---------------------- #
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -90,6 +92,13 @@ def send_telegram_message(message):
     except Exception as e:
         print("Erreur envoi Telegram :", e)
 
+# ---------------------- Sauvegarder dans un CSV ---------------------- #
+def save_to_csv(df, symbol):
+    CSV_FILE = f"historical_{symbol.replace('/', '')}_{TIMEFRAME}.csv"  
+    if not os.path.exists(CSV_FILE):
+        df.to_csv(CSV_FILE)
+        print(f"✅ Données sauvegardées dans {CSV_FILE}")
+
 # Should I buy crypto
 def ShouldIByCrypto():
     for symbol in SYMBOLS:
@@ -97,9 +106,12 @@ def ShouldIByCrypto():
             df = fetch_crypto_data(symbol)
             df = enrich_features(df)
             df['symbol'] = symbol
+            save_to_csv(df, symbol)
             combined_df.append(df)
+
         except Exception as e:
             print(f"Erreur chargement pour {symbol} : {e}")
+
 
     # ----- 2. Combiner les données -----
     if not combined_df:

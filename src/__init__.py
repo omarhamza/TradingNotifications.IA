@@ -13,12 +13,14 @@ from xgboost import XGBClassifier
 
 TELEGRAM_TOKEN = "7706670085:AAGRMve7EuhFo1i8C2U22JdNPyGyvjN4-N8"
 TELEGRAM_CHAT_ID = "7664939619"
+
 SLEEP_TIME = 15
 
-# ⚙️ Liste des cryptos à surveiller
 SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
 RSI_THRESHOLD_SELL = 70
 combined_df = []
+TIMEFRAME = '1h'
+DAYS_BACK = 180
 
 features = [
     'rsi', 'rsi_delta', 'macd', 'macd_signal',
@@ -27,10 +29,31 @@ features = [
 ]
 
 # ---- 1. Charger les données depuis Binance ----
-def fetch_crypto_data(symbol, timeframe='1h', limit=500):
+def fetch_crypto_data(symbol, max_days=180):
     exchange = ccxt.binance()
-    data = exchange.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
-    df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=max_days)).isoformat())
+    all_data = []
+    limit = 1000
+
+    while True:
+        try:
+            data = exchange.fetch_ohlcv(symbol, timeframe=TIMEFRAME, since=since, limit=limit)
+            if not data:
+                break
+
+            all_data += data
+            since = data[-1][0] + 1  # passer à la bougie suivante
+
+            if len(data) < limit:
+                break  # pas plus de données à récupérer
+
+        except Exception as e:
+            print(f"Erreur récupération : {e}")
+            break
+
+        time.sleep(0.2)  # pour éviter d’être bloqué par l’API
+
+    df = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
     df.set_index('timestamp', inplace=True)
     return df

@@ -41,11 +41,22 @@ def send_telegram_message(message):
 send_telegram_message(f"✅ *Start running !*")
 
 # ---- 1. Charger les données depuis Binance ----
-def fetch_crypto_data(symbol, max_days=180):
+def fetch_crypto_data_incremental(symbol, max_days=180):
+    CSV_FILE = f"historical_{symbol.replace('/', '')}_{TIMEFRAME}.csv"
     exchange = ccxt.binance()
-    since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=max_days)).isoformat())
-    all_data = []
     limit = 1000
+    all_data = []
+
+    if os.path.exists(CSV_FILE):
+        # Charger les données existantes
+        df_existing = pd.read_csv(CSV_FILE, parse_dates=['timestamp'])
+        df_existing.set_index('timestamp', inplace=True)
+        last_timestamp = df_existing.index[-1]
+        since = int(last_timestamp.timestamp() * 1000) + 1  # En ms
+    else:
+        # Pas de fichier : démarrer depuis now - max_days
+        since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=max_days)).isoformat())
+        df_existing = pd.DataFrame()
 
     while True:
         try:
@@ -53,17 +64,31 @@ def fetch_crypto_data(symbol, max_days=180):
             if not data:
                 break
             all_data += data
-            since = data[-1][0] + 1  # passer à la bougie suivante
+            since = data[-1][0] + 1
             if len(data) < limit:
-                break  # pas plus de données à récupérer
+                break
+            time.sleep(0.2)
         except Exception as e:
             print(f"Erreur récupération : {e}")
             break
-        time.sleep(0.2)
 
-    df = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
-    df.set_index('timestamp', inplace=True)
+    if not all_data:
+        print(f"Aucune nouvelle donnée pour {symbol}")
+        return df_existing
+
+    df_new = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+    df_new['timestamp'] = pd.to_datetime(df_new['timestamp'], unit='ms')
+    df_new.set_index('timestamp', inplace=True)
+
+    # Fusionner sans doublon
+    df = pd.concat([df_existing, df_new])
+    df = df[~df.index.duplicated(keep='last')]
+    df.sort_index(inplace=True)
+
+    # Sauvegarde mise à jour
+    df.to_csv(CSV_FILE)
+    print(f"✅ Données mises à jour pour {symbol}")
+
     return df
 
 # ---- 2. Ajouter des indicateurs techniques ----
@@ -83,14 +108,7 @@ def enrich_features(df):
     df.dropna(inplace=True)
     return df
 
-# ---- 3. Sauvegarder dans un CSV ----
-def save_to_csv(df, symbol):
-    CSV_FILE = f"historical_{symbol.replace('/', '')}_{TIMEFRAME}.csv"
-    if not os.path.exists(CSV_FILE):
-        df.to_csv(CSV_FILE)
-        print(f"✅ Données sauvegardées dans {CSV_FILE}")
-
-# ---- 4. Entraînement du modèle ML ----
+# ---- 3. Entraînement du modèle ML ----
 def train_model_from_csv(csv_file):
     df = pd.read_csv(csv_file, parse_dates=['timestamp'])
     df.set_index('timestamp', inplace=True)
@@ -112,7 +130,7 @@ def train_model_from_csv(csv_file):
 
     return model, df
 
-# ---- 5. Envoi d’un message Telegram ----
+# ---- 4. Envoi d’un message Telegram ----
 def send_telegram_message(message):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
@@ -125,14 +143,17 @@ def send_telegram_message(message):
     except Exception as e:
         print("Erreur envoi Telegram :", e)
 
-# ---- 6. Logique principale ----
+# ---- 5. Logique principale ----
 def ShouldIBuyCrypto():
     for symbol in SYMBOLS:
         try:
-            df = fetch_crypto_data(symbol)
+            df = fetch_crypto_data_incremental(symbol)
             df = enrich_features(df)
             df['symbol'] = symbol
-            save_to_csv(df, symbol)
+
+            # 🔁 Enregistre le DataFrame enrichi dans le CSV mis à jour
+            CSV_FILE = f"historical_{symbol.replace('/', '')}_{TIMEFRAME}.csv"
+            df.to_csv(CSV_FILE)
         except Exception as e:
             print(f"Erreur chargement pour {symbol} : {e}")
 

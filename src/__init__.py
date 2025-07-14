@@ -4,7 +4,7 @@ import numpy as np
 import requests
 import time
 import os
-from ta.momentum import RSIIndicator
+from ta.momentum import RSIIndicator, StochasticOscillator
 from ta.trend import MACD, EMAIndicator
 from ta.volatility import BollingerBands
 from ta.volume import OnBalanceVolumeIndicator
@@ -22,7 +22,7 @@ DAYS_BACK = 180
 features = [
     'rsi', 'rsi_delta', 'macd', 'macd_signal',
     'ema_20', 'ema_50', 'bb_high', 'bb_low',
-    'obv', 'volatility'
+    'obv', 'volatility', 'stoch_k', 'stoch_d'
 ]
 
 # ---------------------- Envoyer message via télégram ---------------------- #
@@ -98,10 +98,17 @@ def enrich_features(df):
     df['macd_signal'] = MACD(close=df['close']).macd_signal()
     df['ema_20'] = EMAIndicator(close=df['close'], window=20).ema_indicator()
     df['ema_50'] = EMAIndicator(close=df['close'], window=50).ema_indicator()
+
     bb = BollingerBands(close=df['close'])
     df['bb_high'] = bb.bollinger_hband()
     df['bb_low'] = bb.bollinger_lband()
     df['obv'] = OnBalanceVolumeIndicator(close=df['close'], volume=df['volume']).on_balance_volume()
+
+    # Stochastic Oscillator
+    stoch = StochasticOscillator(high=df['high'], low=df['low'], close=df['close'])
+    df['stoch_k'] = stoch.stoch()
+    df['stoch_d'] = stoch.stoch_signal()
+
     df['returns'] = df['close'].pct_change()
     df['volatility'] = df['returns'].rolling(10).std()
     df['rsi_delta'] = df['rsi'].diff()

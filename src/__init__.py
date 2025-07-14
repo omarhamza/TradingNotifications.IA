@@ -18,7 +18,7 @@ TELEGRAM_CHAT_ID = "7664939619"
 SLEEP_TIME = 15
 SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'SOL/USDT']
 TIMEFRAME = '1h'
-DAYS_BACK = 180
+MAX_DAYS=365
 
 features = [
     'rsi', 'rsi_delta', 'macd', 'macd_signal',
@@ -42,7 +42,7 @@ def send_telegram_message(message):
 send_telegram_message(f"✅ *Start running !*")
 
 # ---- 1. Charger les données depuis Binance ----
-def fetch_crypto_data_incremental(symbol, max_days=180):
+def fetch_crypto_data_incremental(symbol, max_days):
     CSV_FILE = f"historical_{symbol.replace('/', '')}_{TIMEFRAME}.csv"
     exchange = ccxt.binance()
     limit = 1000
@@ -55,8 +55,8 @@ def fetch_crypto_data_incremental(symbol, max_days=180):
         last_timestamp = df_existing.index[-1]
         since = int(last_timestamp.timestamp() * 1000) + 1  # En ms
     else:
-        # Pas de fichier : démarrer depuis now - max_days
-        since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=max_days)).isoformat())
+        # Pas de fichier : démarrer depuis now - MAX_DAYS
+        since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=MAX_DAYS)).isoformat())
         df_existing = pd.DataFrame()
 
     while True:
@@ -155,7 +155,7 @@ def send_telegram_message(message):
 def ShouldIBuyCrypto():
     for symbol in SYMBOLS:
         try:
-            df = fetch_crypto_data_incremental(symbol)
+            df = fetch_crypto_data_incremental(symbol, max_days=MAX_DAYS)
             df = enrich_features(df)
             df['symbol'] = symbol
 

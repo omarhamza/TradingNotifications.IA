@@ -25,10 +25,10 @@ def ShouldIBuyCrypto():
             model, df_symbol = train_model_from_csv(CSV_FILE)
             last_features = df_symbol[features].iloc[-1].values.reshape(1, -1)
             prediction = model.predict(last_features)[0]
-            latest_rsi = df_symbol['rsi'].iloc[-1]
+            latest_rsi = df_symbol['rsi'].iloc[-1]            
 
             if prediction == 1:
-                notify(f"🚀 *Signal d'achat détecté !*\n"
+                send_telegram_message(f"🚀 *Signal d'achat détecté !*\n"
                                       f"Il est peut-être temps d'acheter *{symbol}* !\n"
                                       f"RSI : {latest_rsi:.2f}")
             else:

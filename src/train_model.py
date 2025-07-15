@@ -16,7 +16,7 @@ def train_model_from_csv(csv_file):
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, shuffle=False, test_size=0.2)
 
-    model = XGBClassifier(use_label_encoder=False, eval_metric='logloss')
+    model = XGBClassifier(eval_metric='logloss', base_score=0.5)
     model.fit(X_train, y_train)
     y_pred = model.predict(X_test)
 

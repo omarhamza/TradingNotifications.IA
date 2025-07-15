@@ -3,23 +3,17 @@ import os
 import pandas as pd
 import time
 from config import TIMEFRAME, MAX_DAYS
+from delete_csv_files import delete_csv_files
 
 def fetch_crypto_data_incremental(symbol):
     CSV_FILE = f"historical_{symbol.replace('/', '')}_{TIMEFRAME}.csv"
     exchange = ccxt.binance()
     limit = 1000
     all_data = []
+    since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=MAX_DAYS)).isoformat())
 
     if os.path.exists(CSV_FILE):
-        # Charger les données existantes
-        df_existing = pd.read_csv(CSV_FILE, parse_dates=['timestamp'])
-        df_existing.set_index('timestamp', inplace=True)
-        last_timestamp = df_existing.index[-1]
-        since = int(last_timestamp.timestamp() * 1000) + 1  # En ms
-    else:
-        # Pas de fichier : démarrer depuis now - MAX_DAYS
-        since = exchange.parse8601((pd.Timestamp.utcnow() - pd.Timedelta(days=MAX_DAYS)).isoformat())
-        df_existing = pd.DataFrame()
+        delete_csv_files()
 
     while True:
         try:
@@ -35,16 +29,12 @@ def fetch_crypto_data_incremental(symbol):
             print(f"Erreur récupération : {e}")
             break
 
-    if not all_data:
-        print(f"Aucune nouvelle donnée pour {symbol}")
-        return df_existing
-
     df_new = pd.DataFrame(all_data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
     df_new['timestamp'] = pd.to_datetime(df_new['timestamp'], unit='ms')
     df_new.set_index('timestamp', inplace=True)
 
     # Fusionner sans doublon
-    df = pd.concat([df_existing, df_new])
+    df = pd.DataFrame(df_new)
     df = df[~df.index.duplicated(keep='last')]
     df.sort_index(inplace=True)
 

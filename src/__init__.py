@@ -179,10 +179,8 @@ def ShouldIBuyCrypto():
         except Exception as e:
             print(f"Erreur de prédiction pour {symbol} : {e}")
 
-while True:
-    try:
-        ShouldIBuyCrypto()
-    except Exception as e:
-        notify(f"❌❌❌ Erreur globale : {e}")
-    print(f"⏳ Pause de {SLEEP_TIME} minutes avant le prochain cycle...\n")
-    time.sleep(SLEEP_TIME * 60)
+try:
+    ShouldIBuyCrypto()
+except Exception as e:
+    notify(f"❌❌❌ Erreur globale : {e}")
+print(f"⏳ Pause de {SLEEP_TIME} minutes avant le prochain cycle...\n")

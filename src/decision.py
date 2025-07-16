@@ -28,7 +28,7 @@ def ShouldIBuyCrypto():
             latest_rsi = df_symbol['rsi'].iloc[-1]            
 
             if prediction == 1:
-                send_telegram_message(f"🚀 *Signal d'achat détecté !*\n"
+                notify(f"🚀 *Signal d'achat détecté !*\n"
                                       f"Il est peut-être temps d'acheter *{symbol}* !\n"
                                       f"RSI : {latest_rsi:.2f}")
             else:

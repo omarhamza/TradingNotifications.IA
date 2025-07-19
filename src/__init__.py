@@ -183,4 +183,3 @@ try:
     ShouldIBuyCrypto()
 except Exception as e:
     notify(f"❌❌❌ Erreur globale : {e}")
-print(f"⏳ Pause de {SLEEP_TIME} minutes avant le prochain cycle...\n")
